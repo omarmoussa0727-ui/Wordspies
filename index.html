@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Word Spies</title>
+<style>
+  :root{
+    --bg:#161a24; --panel:#1f2533; --text:#e8ecf4; --muted:#8b95ab;
+    --red:#c0392b; --blue:#2471a3; --neutral:#d8c9a3; --black:#1a1a1a; --card:#f3ead3;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  h1{margin:0;font-size:1.3rem;letter-spacing:.5px}
+  button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:8px 12px;background:#2e3750;color:var(--text)}
+  button:hover{background:#3a4566}
+  button.red{background:var(--red)} button.blue{background:var(--blue)}
+  button.on{outline:2px solid #fff}
+  input{font:inherit;padding:9px 12px;border-radius:8px;border:1px solid #3a4566;background:#12151e;color:var(--text)}
+  .wrap{max-width:900px;margin:0 auto;padding:14px}
+  .landing{text-align:center;margin-top:12vh}
+  .landing .row{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .score{display:flex;gap:8px;align-items:center}
+  .pill{padding:6px 14px;border-radius:999px;font-weight:700}
+  .pill.red{background:var(--red)} .pill.blue{background:var(--blue)}
+  .pill.turn{box-shadow:0 0 0 3px #fff}
+  .banner{text-align:center;font-weight:700;padding:8px;border-radius:8px;margin-bottom:10px;background:var(--panel)}
+  .banner.red{background:var(--red)} .banner.blue{background:var(--blue)}
+  .board{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .card{background:var(--card);color:#222;border-radius:8px;min-height:74px;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:700;text-transform:uppercase;font-size:clamp(.65rem,2.4vw,1rem);padding:4px;cursor:pointer;user-select:none;position:relative;border:4px solid transparent;word-break:break-word}
+  .card.rev-red{background:var(--red);color:#fff}
+  .card.rev-blue{background:var(--blue);color:#fff}
+  .card.rev-neutral{background:var(--neutral);color:#6b5f3e}
+  .card.rev-assassin{background:var(--black);color:#fff}
+  .card.rev{cursor:default;opacity:.92}
+  .card.over:not(.rev){opacity:.55}
+  /* key tint on unrevealed cards */
+  .card.key-red{border-color:var(--red)} .card.key-blue{border-color:var(--blue)}
+  .card.key-neutral{border-color:var(--neutral)} .card.key-assassin{border-color:#000;background:#9a9a9a}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;align-items:center}
+  .controls .sp{flex:1}
+  .panel{background:var(--panel);border-radius:10px;padding:12px;margin-top:12px}
+  .panel h3{margin:0 0 8px;font-size:.95rem;color:var(--muted)}
+  .players{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{padding:4px 10px;border-radius:999px;font-size:.85rem;background:#2e3750}
+  .chip.red{background:var(--red)} .chip.blue{background:var(--blue)} .chip.off{opacity:.45}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:10}
+  .modal .box{background:var(--panel);padding:22px;border-radius:12px;text-align:center}
+  .hidden{display:none!important}
+  /* host panel */
+  .host{border:1px dashed #6c5ce7}
+  .host h3{color:#a29bfe}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  td,th{padding:4px 6px;text-align:left;border-bottom:1px solid #2e3750}
+  .log{max-height:260px;overflow:auto;font-size:.85rem;font-family:ui-monospace,Menlo,monospace}
+  .log div{padding:2px 0;border-bottom:1px solid #262d40}
+  .log .flag{color:#ff7675;font-weight:700}
+  .log .t{color:var(--muted);margin-right:6px}
+  .small{font-size:.8rem;color:var(--muted)}
+  .live{color:#ff7675;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="landing" class="landing hidden">
+    <h1>🕵️ Word Spies</h1>
+    <p class="small">A Codenames-style word game for you and your friends.</p>
+    <div class="row"><button id="createBtn" class="red">Create a new room</button></div>
+    <div class="row">
+      <input id="joinCode" placeholder="Room code" maxlength="5" style="width:130px;text-transform:lowercase">
+      <button id="joinBtn">Join room</button>
+    </div>
+  </div>
+
+  <div id="game" class="hidden">
+    <div class="top">
+      <h1>🕵️ Word Spies <span class="small" id="roomLabel"></span></h1>
+      <div class="score">
+        <span class="pill red" id="redPill">Red 9</span>
+        <span class="pill blue" id="bluePill">Blue 8</span>
+      </div>
+    </div>
+    <div id="banner" class="banner"></div>
+    <div id="board" class="board"></div>
+
+    <div class="controls">
+      <button id="joinRed" class="red">Join Red</button>
+      <button id="joinBlue" class="blue">Join Blue</button>
+      <button id="joinSpec">Spectate</button>
+      <span class="sp"></span>
+      <button id="spyBtn">Spymaster view</button>
+      <button id="endTurn">End turn</button>
+      <button id="newGame">New game</button>
+    </div>
+
+    <div class="panel">
+      <h3>Players</h3>
+      <div id="players" class="players"></div>
+      <div class="small" style="margin-top:8px">Invite friends by sending them this page's link.</div>
+    </div>
+
+    <!-- HOST ONLY: this whole block is never sent to anyone but the room creator -->
+    <div id="host" class="panel host hidden">
+      <h3>🔒 Host-only: spymaster watch <span class="small">(nobody else can see this)</span></h3>
+      <label class="small"><input type="checkbox" id="peek"> Show me the key on the board (not logged)</label>
+      <div class="small" id="claim" style="margin:8px 0"></div>
+      <table id="hostTable"></table>
+      <h3 style="margin-top:12px">Event log</h3>
+      <div id="log" class="log"></div>
+      <div class="small" style="margin-top:8px">Keep your host link private: <span id="adminLink"></span></div>
+    </div>
+  </div>
+</div>
+
+<div id="nameModal" class="modal hidden">
+  <div class="box">
+    <h3>What's your name?</h3>
+    <input id="nameInput" maxlength="20" placeholder="Your name" autofocus>
+    <div style="margin-top:12px"><button id="nameOk" class="red">Let me in</button></div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const qs = new URLSearchParams(location.search);
+let room = qs.get('r');
+let pid = localStorage.getItem('ws_pid');
+if (!pid) {
+  pid = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Math.random().toString(36).slice(2) + Date.now().toString(36));
+  localStorage.setItem('ws_pid', pid);
+}
+let adminKey = null;
+let state = null;
+let es = null;
+
+function setRoomUrl(code) {
+  history.replaceState(null, '', '?r=' + code);
+}
+
+// ---------- landing ----------
+if (!room) {
+  $('landing').classList.remove('hidden');
+  $('createBtn').onclick = async () => {
+    const r = await fetch('/api/create', { method: 'POST' }).then((x) => x.json());
+    // The host key is stored ONLY in this browser; it is never put in a shareable link.
+    localStorage.setItem('ws_admin_' + r.room, r.adminKey);
+    location.href = '?r=' + r.room;
+  };
+  $('joinBtn').onclick = () => {
+    const c = $('joinCode').value.trim().toLowerCase();
+    if (c) location.href = '?r=' + c;
+  };
+} else {
+  // host link support: ?r=abcde&a=KEY (saves key, then strips it from the URL)
+  if (qs.get('a')) {
+    localStorage.setItem('ws_admin_' + room, qs.get('a'));
+    setRoomUrl(room);
+  }
+  adminKey = localStorage.getItem('ws_admin_' + room);
+  $('game').classList.remove('hidden');
+  $('roomLabel').textContent = '· room ' + room;
+  connect();
+}
+
+function post(type, extra) {
+  return fetch('/api/action', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ room, pid, admin: adminKey, type }, extra || {})),
+  });
+}
+
+function connect() {
+  const url = '/api/events?room=' + encodeURIComponent(room) + '&pid=' + encodeURIComponent(pid) +
+    (adminKey ? '&admin=' + encodeURIComponent(adminKey) : '');
+  es = new EventSource(url);
+  es.onmessage = (e) => {
+    state = JSON.parse(e.data);
+    if (!state.me.name) {
+      const saved = localStorage.getItem('ws_name');
+      if (saved) post('join', { name: saved });
+      else $('nameModal').classList.remove('hidden');
+    } else {
+      $('nameModal').classList.add('hidden');
+    }
+    render();
+  };
+  es.addEventListener('gone', () => {
+    es.close();
+    document.body.innerHTML = '<div class="wrap landing"><h1>Room not found</h1><p class="small">It may have expired or the server restarted.</p><a href="/" style="color:#74b9ff">Make a new room</a></div>';
+  });
+}
+
+$('nameOk').onclick = submitName;
+$('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitName(); });
+function submitName() {
+  const n = $('nameInput').value.trim();
+  if (!n) return;
+  localStorage.setItem('ws_name', n);
+  post('join', { name: n });
+}
+
+$('joinRed').onclick = () => post('team', { team: 'red' });
+$('joinBlue').onclick = () => post('team', { team: 'blue' });
+$('joinSpec').onclick = () => post('team', { team: null });
+$('spyBtn').onclick = () => post('spy', { on: !state.me.spy });
+$('endTurn').onclick = () => post('endturn');
+$('newGame').onclick = () => { if (confirm('Start a new game?')) post('newgame'); };
+$('peek').onchange = () => render();
+
+function fmtTime(ms) { return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+function fmtDur(ms) { const s = Math.round(ms / 1000); return Math.floor(s / 60) + 'm ' + (s % 60) + 's'; }
+const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+
+function render() {
+  if (!state) return;
+  const s = state;
+
+  $('redPill').textContent = 'Red ' + s.remaining.red;
+  $('bluePill').textContent = 'Blue ' + s.remaining.blue;
+  $('redPill').classList.toggle('turn', !s.over && s.turn === 'red');
+  $('bluePill').classList.toggle('turn', !s.over && s.turn === 'blue');
+
+  const b = $('banner');
+  b.className = 'banner ' + (s.over ? s.winner : s.turn);
+  b.textContent = s.over ? (cap(s.winner) + ' team wins! 🎉') : (cap(s.turn) + "'s turn");
+
+  // Which key do we show? Spymaster key (server only sends it if you opened spymaster view),
+  // or the host's silent peek.
+  let key = s.key;
+  if (!key && s.hostKey && $('peek').checked) key = s.hostKey;
+
+  const board = $('board');
+  board.innerHTML = '';
+  s.cards.forEach((c, i) => {
+    const d = document.createElement('div');
+    d.className = 'card';
+    if (c.revealed) d.classList.add('rev', 'rev-' + c.type);
+    else if (s.over && c.type) d.classList.add('over', 'key-' + c.type);
+    else if (key) d.classList.add('key-' + key[i]);
+    d.textContent = c.w;
+    d.onclick = () => { if (!c.revealed && !s.over) post('guess', { idx: i }); };
+    board.appendChild(d);
+  });
+
+  // buttons
+  $('joinRed').classList.toggle('on', s.me.team === 'red');
+  $('joinBlue').classList.toggle('on', s.me.team === 'blue');
+  $('joinSpec').classList.toggle('on', !s.me.team);
+  $('spyBtn').textContent = s.me.spy ? 'Close spymaster view' : 'Spymaster view';
+  $('spyBtn').classList.toggle('on', s.me.spy);
+
+  // players list (deliberately does NOT show who is spymaster)
+  const pl = $('players');
+  pl.innerHTML = '';
+  s.players.forEach((p) => {
+    const c = document.createElement('span');
+    c.className = 'chip ' + (p.team || '') + (p.online ? '' : ' off');
+    c.textContent = p.name + (p.team ? '' : ' (spectating)');
+    pl.appendChild(c);
+  });
+
+  // host-only panel
+  const host = $('host');
+  if (s.admin) {
+    host.classList.remove('hidden');
+    const claim = s.admin.claim;
+    $('claim').textContent = 'This game\'s first key-openers → Red: ' + (claim.red || '—') + ' · Blue: ' + (claim.blue || '—');
+    const t = $('hostTable');
+    t.innerHTML = '<tr><th>Player</th><th>Team</th><th>Online</th><th>Key open now</th><th>Times opened</th><th>Total time</th></tr>';
+    s.admin.players.forEach((p) => {
+      const tr = document.createElement('tr');
+      const cells = [p.name, p.team ? cap(p.team) : '—', p.online ? 'yes' : 'no', p.spy ? 'YES' : '', p.opens, fmtDur(p.ms)];
+      cells.forEach((v, i) => {
+        const td = document.createElement('td');
+        td.textContent = v;
+        if (i === 3 && p.spy) td.className = 'live';
+        tr.appendChild(td);
+      });
+      t.appendChild(tr);
+    });
+    const log = $('log');
+    log.innerHTML = '';
+    s.admin.log.slice().reverse().forEach((l) => {
+      const d = document.createElement('div');
+      if (l.flag) d.className = 'flag';
+      const ts = document.createElement('span');
+      ts.className = 't';
+      ts.textContent = fmtTime(l.t);
+      d.appendChild(ts);
+      d.appendChild(document.createTextNode((l.flag ? '⚠ ' : '') + l.text));
+      log.appendChild(d);
+    });
+    $('adminLink').textContent = location.origin + '/?r=' + room + '&a=' + adminKey;
+  } else {
+    host.classList.add('hidden');
+  }
+}
+</script>
+</body>
+</html>

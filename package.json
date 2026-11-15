@@ -1,0 +1,12 @@
+{
+  "name": "word-spies",
+  "version": "1.0.0",
+  "description": "Codenames-style word game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
